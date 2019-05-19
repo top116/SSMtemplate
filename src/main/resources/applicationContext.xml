@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.3.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
+
+	<!-- 说明：SSM框架该模板搭建时，必须保证entity、mapper这两个包和resources文件夹下有对应的mapper.xml文件，否则扫描不到，启动报错，并不是配置出问题 -->
+	<!-- 扫描业务逻辑组件 -->
+	<context:component-scan
+		base-package="com.sun123">
+		<!-- 不扫描控制器，其他全部扫描 -->
+		<context:exclude-filter type="annotation"
+			expression="org.springframework.stereotype.Controller" />
+	</context:component-scan>
+	<!-- Spring的配置文件，这里主要配置和业务逻辑有关的 -->
+	<!-- =====================数据源，事务控制等核心内容==================== -->
+	<!-- Namespaces引入context标签 -->
+	<context:property-placeholder
+		location="classpath:dbconfig.properties" />
+
+	<bean id="dataSource"
+		class="com.alibaba.druid.pool.DruidDataSource">
+		<property name="url" value="${jdbc.jdbcUrl}" />
+		<property name="username" value="${jdbc.username}" />
+		<property name="password" value="${jdbc.password}" />
+		<property name="driverClassName" value="${jdbc.driverClass}" />
+		<property name="maxActive" value="10" />
+		<property name="minIdle" value="5" />
+	</bean>
+
+	<!-- =======================配置和MyBatis的整合==================== -->
+	<bean id="sqlSessionFactory"
+		class="org.mybatis.spring.SqlSessionFactoryBean">
+		<!-- 指定MyBatis全局配置文件的位置 -->
+		<property name="configLocation"
+			value="classpath:mybatis-config.xml"></property>
+		<property name="dataSource" ref="dataSource"></property>
+		<!-- 指定mybatis，mapper文件的位置 -->
+		<property name="mapperLocations"
+			value="classpath:mapper/*.xml"></property>
+	</bean>
+
+	<!-- 配置扫描器，将Mybatis接口的实现加入到ioc容器中 -->
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<!-- 扫描所有dao接口的实现，加入到ioc容器中 -->
+		<property name="basePackage" value="com.sun123.template.mapper"></property>
+	</bean>
+
+	<!-- 配置一个可以执行批量的sqlSession（本项目中测试类中有实例） -->
+	<bean id="sqlSession"
+		class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg name="sqlSessionFactory"
+			ref="sqlSessionFactory"></constructor-arg>
+		<constructor-arg name="executorType" value="BATCH"></constructor-arg>
+	</bean>
+	
+	<!-- =========================================== -->
+
+
+
+	<!-- ====================事务控制的配置======================== -->
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<!-- 控制住数据源 -->
+		<property name="dataSource" ref="dataSource" />
+	</bean>
+
+	<!-- 开启基于注解的事务，使用xml配置形式的事务（比较重要的都是使用配置式） -->
+	<!-- Namespaces开启aop标签 -->
+	<aop:config>
+		<!-- 切入点表达式 -->
+		<aop:pointcut
+			expression="execution(* com.sun123.template.service..*(..))"
+			id="txPoint" />
+		<!-- 配置事务增强 -->
+		<!-- 引入tx -->
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="txPoint" />
+	</aop:config>
+
+	<!-- 配置事务增强，事务如何切入 -->
+	<tx:advice id="txAdvice"
+		transaction-manager="transactionManager">
+		<tx:attributes>
+			<!-- 所有方法都是事务方法 -->
+			<tx:method name="*" />
+			<!-- 传播行为 -->
+			<tx:method name="save*" propagation="REQUIRED" />
+			<tx:method name="insert*" propagation="REQUIRED" />
+			<tx:method name="add*" propagation="REQUIRED" />
+			<tx:method name="create*" propagation="REQUIRED" />
+			<tx:method name="delete*" propagation="REQUIRED" />
+			<tx:method name="update*" propagation="REQUIRED" />
+			<tx:method name="find*" propagation="SUPPORTS" read-only="true" />
+			<tx:method name="select*" propagation="SUPPORTS" read-only="true" />
+			<!-- 一get开始的所有方法 -->
+			<tx:method name="get*" propagation="SUPPORTS" read-only="true" />
+		</tx:attributes>
+	</tx:advice>
+
+	<!-- Spring配置文件的核心点（数据源、与MyBatis的整合、事务控制） -->
+</beans>
